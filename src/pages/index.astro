@@ -32,7 +32,18 @@ function entryLink(slug: string): string {
   </head>
   <body>
     <header class="page-head">
-      <div class="source-intro" set:html={dictionary.introHtml} />
+      <div class="masthead">
+        <h1>{dictionary.title}</h1>
+        <p>
+          {dictionary.stats.entryCount} concepts, {dictionary.stats.sectionCount} source
+          sections, {dictionary.stats.linkCount} internal relationships. Summaries first,
+          source prose collapsed.
+        </p>
+        <details class="source-intro">
+          <summary>Source intro</summary>
+          <div set:html={dictionary.introHtml} />
+        </details>
+      </div>
 
       <div class="opening-grid" aria-label="Dictionary structure">
         <section class="readout" aria-labelledby="readout-heading">
@@ -92,112 +103,90 @@ function entryLink(slug: string): string {
         </div>
       </section>
 
-      <section class="term-atlas" aria-labelledby="atlas-heading">
-        <div class="atlas-head">
-          <h2 id="atlas-heading">Term Atlas</h2>
-          <p>Each preview is the opening source sentence or phrase.</p>
+      <section class="concept-deck" aria-labelledby="deck-heading">
+        <div class="deck-head">
+          <h2 id="deck-heading">Concept Deck</h2>
+          <p>Each card is a source-derived summary, relationship map, and collapsed entry.</p>
         </div>
+
         {dictionary.sections.map((section) => (
-          <div class="atlas-group" style={`--section-index:${sectionIndex(section.id)}`}>
-            <h3>{section.label}</h3>
-            <div class="atlas-terms">
-              {(entriesBySection.get(section.id) ?? []).map((entry) => (
-                <a href={entryLink(entry.slug)}>
-                  <span>{entry.term}</span>
-                  <small>{entry.previewText}</small>
-                </a>
-              ))}
-            </div>
-          </div>
-        ))}
-      </section>
+          <section
+            id={section.id}
+            class="dictionary-section"
+            style={`--section-index:${sectionIndex(section.id)}`}
+            aria-labelledby={`${section.id}-heading`}
+          >
+            <header class="dictionary-section-head">
+              <span>Section {section.number}</span>
+              <h2 id={`${section.id}-heading`}>{section.label}</h2>
+              <p>{section.entries.length} terms</p>
+            </header>
 
-      <div class="reading-layout">
-        <nav class="section-nav" aria-label="Sections">
-          <span>Sections</span>
-          {dictionary.sections.map((section) => (
-            <a
-              href={`#${section.id}`}
-              style={`--section-index:${sectionIndex(section.id)}`}
-            >
-              {section.number}. {section.label}
-            </a>
-          ))}
-        </nav>
-
-        <div class="entries">
-          {dictionary.sections.map((section) => (
-            <section
-              id={section.id}
-              class="dictionary-section"
-              style={`--section-index:${sectionIndex(section.id)}`}
-              aria-labelledby={`${section.id}-heading`}
-            >
-              <header class="dictionary-section-head">
-                <span>Section {section.number}</span>
-                <h2 id={`${section.id}-heading`}>{section.label}</h2>
-                <p>{section.entries.length} terms</p>
-              </header>
-
-              {(entriesBySection.get(section.id) ?? []).map((entry, index, sectionEntries) => {
-                const previous = sectionEntries[index - 1];
-                const next = sectionEntries[index + 1];
+            <div class="knowledge-grid">
+              {(entriesBySection.get(section.id) ?? []).map((entry) => {
                 const outbound = entry.outboundLinks
                   .map((slug) => entriesBySlug.get(slug))
                   .filter(Boolean)
-                  .slice(0, 8);
+                  .slice(0, 5);
                 const inbound = entry.inboundLinks
                   .map((slug) => entriesBySlug.get(slug))
                   .filter(Boolean)
-                  .slice(0, 8);
+                  .slice(0, 5);
+                const related = [...outbound, ...inbound]
+                  .filter(Boolean)
+                  .filter(
+                    (item, index, all) =>
+                      item && all.findIndex((other) => other?.slug === item.slug) === index
+                  )
+                  .slice(0, 6);
 
                 return (
-                  <article id={entry.slug} class="entry">
-                    <header class="entry-head">
-                      <div>
-                        <h3>{entry.term}</h3>
-                        <p>{entry.previewText}</p>
-                      </div>
-                      <ul aria-label={`${entry.term} traits`}>
-                        <li>{entry.wordCount}w</li>
-                        {entry.hasTable && <li>table</li>}
-                        {entry.hasAvoid && <li>avoid</li>}
-                      </ul>
+                  <article id={entry.slug} class="knowledge-card">
+                    <header class="card-top">
+                      <h3>{entry.term}</h3>
+                      <span class="card-section">S{section.number}</span>
                     </header>
 
-                    <div class="entry-body" set:html={entry.bodyHtml} />
+                    <p class="one-line">{entry.oneLineText}</p>
 
-                    <footer class="entry-links">
-                      <div>
-                        <span>Cluster</span>
-                        {previous && <a href={entryLink(previous.slug)}>Prev: {previous.term}</a>}
-                        <a href={`#${section.id}`}>{section.label}</a>
-                        {next && <a href={entryLink(next.slug)}>Next: {next.term}</a>}
-                      </div>
-                      {outbound.length > 0 && (
-                        <div>
-                          <span>Points to</span>
-                          {outbound.map((target) => target && (
+                    <div class="signal-row" aria-label={`${entry.term} signals`}>
+                      <span>{entry.wordCount} words</span>
+                      <span>{entry.outboundLinks.length} out</span>
+                      <span>{entry.inboundLinks.length} in</span>
+                    </div>
+
+                    {related.length > 0 && (
+                      <div class="relation-block">
+                        <strong>Related</strong>
+                        <div class="relation-row">
+                          {related.map((target) => target && (
                             <a href={entryLink(target.slug)}>{target.term}</a>
                           ))}
                         </div>
-                      )}
-                      {inbound.length > 0 && (
-                        <div>
-                          <span>Pointed at by</span>
-                          {inbound.map((source) => source && (
-                            <a href={entryLink(source.slug)}>{source.term}</a>
-                          ))}
-                        </div>
-                      )}
-                    </footer>
+                      </div>
+                    )}
+
+                    <div class="cue-block">
+                      <strong>Contains</strong>
+                      <ul class="cue-list">
+                        <li>Usage example</li>
+                        {entry.hasTable && <li>Structured table</li>}
+                        {entry.hasAvoid && <li>Avoid guidance</li>}
+                        <li>Source prose</li>
+                      </ul>
+                    </div>
+
+                    <details class="entry-details">
+                      <summary>Full explanation</summary>
+                      <div class="entry-body" set:html={entry.bodyHtml} />
+                    </details>
                   </article>
                 );
               })}
-            </section>
-          ))}
-        </div>
-      </div>
+            </div>
+          </section>
+        ))}
+      </section>
     </main>
   </body>
 </html>

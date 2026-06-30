@@ -44,11 +44,17 @@ test("generates stable entry slugs", () => {
 test("extracts entry traits and preserves rendered tables", () => {
   const ai = dictionary.entries.find((entry) => entry.term === "AI");
   const model = dictionary.entries.find((entry) => entry.term === "Model");
+  const tool = dictionary.entries.find((entry) => entry.term === "Tool");
   const effort = dictionary.entries.find((entry) => entry.term === "Effort");
 
   assert.ok(ai);
   assert.equal(ai.hasTable, true);
   assert.match(ai.bodyHtml, /<table>/);
+  assert.equal(ai.oneLineText, "A moving label, not a technology.");
+  assert.equal(
+    tool?.oneLineText,
+    "A function the harness exposes for the agent to call."
+  );
   assert.equal(model?.hasUsage, true);
   assert.equal(effort?.hasAvoid, false);
 });

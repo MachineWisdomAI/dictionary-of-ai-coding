@@ -29,6 +29,7 @@ export type Entry = {
   term: string;
   slug: string;
   sectionId: string;
+  oneLineText: string;
   previewText: string;
   bodyHtml: string;
   wordCount: number;
@@ -146,6 +147,23 @@ function previewFrom(markdown: string): string {
   if (sentenceEnd > 80) return text.slice(0, sentenceEnd + 1);
 
   return `${text.slice(0, 167).trimEnd()}...`;
+}
+
+function oneLineFrom(markdown: string): string {
+  const text = firstParagraphText(markdown);
+  const sentences = text.match(/[^.!?]+[.!?](?=\s|$)/g) ?? [text];
+  const firstSentence = sentences[0]?.trim() ?? text;
+  const secondSentence = sentences[1]?.trim();
+  const beforeDash = firstSentence.split(/\s+[—-]\s+/)[0]?.trim();
+  const base =
+    beforeDash && beforeDash.length >= 24
+      ? beforeDash.replace(/[.!?]?$/, ".")
+      : firstSentence;
+  const candidate =
+    base.length < 24 && secondSentence ? `${base} ${secondSentence}` : base;
+
+  if (candidate.length <= 118) return candidate;
+  return `${candidate.slice(0, 115).trimEnd()}...`;
 }
 
 function linksFrom(
@@ -309,6 +327,7 @@ export function parseReadmeDictionary(markdown: string): DictionaryDocument {
       term: rawEntry.term,
       slug: termToSlug.get(rawEntry.term) ?? githubSlug(rawEntry.term),
       sectionId: rawEntry.sectionId,
+      oneLineText: oneLineFrom(rawEntry.markdown),
       previewText: previewFrom(rawEntry.markdown),
       bodyHtml: renderMarkdown(rawEntry.markdown),
       wordCount: wordsIn(rawEntry.markdown),
