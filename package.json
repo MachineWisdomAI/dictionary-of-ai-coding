@@ -3,15 +3,30 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate": "tsx internal/generate-readme.ts",
+    "generate": "node --import tsx internal/generate-readme.ts",
+    "site:dev": "npm run generate && astro dev --host 127.0.0.1",
+    "site:build": "npm run generate && astro build",
+    "site:preview": "astro preview --host 127.0.0.1",
+    "test:site": "node --import tsx --test src/lib/readmeDictionary.test.ts",
     "prepare": "husky"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "astro": "^7.0.4",
+    "github-slugger": "^2.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
+    "mdast-util-to-string": "^4.0.0",
     "prettier": "^3.8.3",
+    "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0"
   }
 }

@@ -1,0 +1,203 @@
+---
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseReadmeDictionary } from "../lib/readmeDictionary";
+import "../styles/dictionary.css";
+
+const markdown = readFileSync(join(process.cwd(), "README.md"), "utf8");
+const dictionary = parseReadmeDictionary(markdown);
+const entriesBySlug = new Map(dictionary.entries.map((entry) => [entry.slug, entry]));
+const entriesBySection = new Map(
+  dictionary.sections.map((section) => [
+    section.id,
+    dictionary.entries.filter((entry) => entry.sectionId === section.id),
+  ])
+);
+
+function sectionIndex(sectionId: string): number {
+  return Math.max(0, dictionary.sections.findIndex((section) => section.id === sectionId));
+}
+
+function entryLink(slug: string): string {
+  return `#${slug}`;
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{dictionary.title}</title>
+  </head>
+  <body>
+    <header class="page-head">
+      <div class="source-intro" set:html={dictionary.introHtml} />
+
+      <div class="opening-grid" aria-label="Dictionary structure">
+        <section class="readout" aria-labelledby="readout-heading">
+          <h2 id="readout-heading">Structure</h2>
+          <dl>
+            <div>
+              <dt>Sections</dt>
+              <dd>{dictionary.stats.sectionCount}</dd>
+            </div>
+            <div>
+              <dt>Terms</dt>
+              <dd>{dictionary.stats.entryCount}</dd>
+            </div>
+            <div>
+              <dt>Median words</dt>
+              <dd>{dictionary.stats.medianWords}</dd>
+            </div>
+            <div>
+              <dt>Cross links</dt>
+              <dd>{dictionary.stats.linkCount}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <nav class="hub-list" aria-labelledby="hub-heading">
+          <h2 id="hub-heading">High traffic terms</h2>
+          <ol>
+            {dictionary.linkGraph.hubs.map((hub) => (
+              <li>
+                <a href={entryLink(hub.slug)}>{hub.term}</a>
+                <span>{hub.inboundCount}</span>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="section-map" aria-labelledby="map-heading">
+        <div class="section-map-head">
+          <h2 id="map-heading">Section Map</h2>
+          <p>Source order, term density, and local clusters.</p>
+        </div>
+        <div class="section-map-grid">
+          {dictionary.sections.map((section) => (
+            <a
+              class="section-tile"
+              href={`#${section.id}`}
+              style={`--section-index:${sectionIndex(section.id)}`}
+            >
+              <span class="section-number">{section.number}</span>
+              <span class="section-name">{section.label}</span>
+              <span class="section-count">{section.entries.length} terms</span>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section class="term-atlas" aria-labelledby="atlas-heading">
+        <div class="atlas-head">
+          <h2 id="atlas-heading">Term Atlas</h2>
+          <p>Each preview is the opening source sentence or phrase.</p>
+        </div>
+        {dictionary.sections.map((section) => (
+          <div class="atlas-group" style={`--section-index:${sectionIndex(section.id)}`}>
+            <h3>{section.label}</h3>
+            <div class="atlas-terms">
+              {(entriesBySection.get(section.id) ?? []).map((entry) => (
+                <a href={entryLink(entry.slug)}>
+                  <span>{entry.term}</span>
+                  <small>{entry.previewText}</small>
+                </a>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <div class="reading-layout">
+        <nav class="section-nav" aria-label="Sections">
+          <span>Sections</span>
+          {dictionary.sections.map((section) => (
+            <a
+              href={`#${section.id}`}
+              style={`--section-index:${sectionIndex(section.id)}`}
+            >
+              {section.number}. {section.label}
+            </a>
+          ))}
+        </nav>
+
+        <div class="entries">
+          {dictionary.sections.map((section) => (
+            <section
+              id={section.id}
+              class="dictionary-section"
+              style={`--section-index:${sectionIndex(section.id)}`}
+              aria-labelledby={`${section.id}-heading`}
+            >
+              <header class="dictionary-section-head">
+                <span>Section {section.number}</span>
+                <h2 id={`${section.id}-heading`}>{section.label}</h2>
+                <p>{section.entries.length} terms</p>
+              </header>
+
+              {(entriesBySection.get(section.id) ?? []).map((entry, index, sectionEntries) => {
+                const previous = sectionEntries[index - 1];
+                const next = sectionEntries[index + 1];
+                const outbound = entry.outboundLinks
+                  .map((slug) => entriesBySlug.get(slug))
+                  .filter(Boolean)
+                  .slice(0, 8);
+                const inbound = entry.inboundLinks
+                  .map((slug) => entriesBySlug.get(slug))
+                  .filter(Boolean)
+                  .slice(0, 8);
+
+                return (
+                  <article id={entry.slug} class="entry">
+                    <header class="entry-head">
+                      <div>
+                        <h3>{entry.term}</h3>
+                        <p>{entry.previewText}</p>
+                      </div>
+                      <ul aria-label={`${entry.term} traits`}>
+                        <li>{entry.wordCount}w</li>
+                        {entry.hasTable && <li>table</li>}
+                        {entry.hasAvoid && <li>avoid</li>}
+                      </ul>
+                    </header>
+
+                    <div class="entry-body" set:html={entry.bodyHtml} />
+
+                    <footer class="entry-links">
+                      <div>
+                        <span>Cluster</span>
+                        {previous && <a href={entryLink(previous.slug)}>Prev: {previous.term}</a>}
+                        <a href={`#${section.id}`}>{section.label}</a>
+                        {next && <a href={entryLink(next.slug)}>Next: {next.term}</a>}
+                      </div>
+                      {outbound.length > 0 && (
+                        <div>
+                          <span>Points to</span>
+                          {outbound.map((target) => target && (
+                            <a href={entryLink(target.slug)}>{target.term}</a>
+                          ))}
+                        </div>
+                      )}
+                      {inbound.length > 0 && (
+                        <div>
+                          <span>Pointed at by</span>
+                          {inbound.map((source) => source && (
+                            <a href={entryLink(source.slug)}>{source.term}</a>
+                          ))}
+                        </div>
+                      )}
+                    </footer>
+                  </article>
+                );
+              })}
+            </section>
+          ))}
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
